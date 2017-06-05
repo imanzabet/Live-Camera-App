@@ -146,7 +146,7 @@ def train(learn_rate, report_steps, batch_size, initial_weights=None):
                                             (last_batch_idx - batch_idx)))
                         last_batch_idx = batch_idx
                         last_batch_time = batch_time
-
+ 
         except KeyboardInterrupt:
             last_weights = [p.eval() for p in params]
             numpy.savez("weights.npz", *last_weights)
