@@ -4,11 +4,12 @@ import cv2
 import numpy
 import math
 import random
-from .constants import CHARS
 
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
+
+CHARS = "0123456789"
 
 FONTS = [
     "fonts/Aller/Aller_Rg.ttf",
@@ -49,11 +50,12 @@ OUTPUT_SHAPE = (128, 128)
 
 DATA_FOLDER = 'data/'
 
+# read image file and return grayscale image
 def im_from_file(f):
     a = numpy.asarray(bytearray(f.read()), dtype=numpy.uint8)
     return cv2.imdecode(a, cv2.IMREAD_GRAYSCALE)
 
-
+# read the .tar file of backgrounds images and create thumbnails of them
 def extract_backgrounds(archive_name, force=False):
     if not os.path.exists(DATA_FOLDER + "/bgs"):
         os.mkdir(DATA_FOLDER + "/bgs")
@@ -84,6 +86,8 @@ def extract_backgrounds(archive_name, force=False):
             im = im[:im.shape[1], :]
         else:
             im = im[:, :im.shape[0]]
+
+        # creating Thumbnail of images
         if im.shape[0] > 256:
             im = cv2.resize(im, (256, 256))
         fname = DATA_FOLDER + "bgs/{:08}.jpg".format(index)
@@ -92,6 +96,7 @@ def extract_backgrounds(archive_name, force=False):
         if not rc:
             raise Exception("Failed to write file {}".format(fname))
         index += 1
+
 
 def make_char_ims(output_height):
     font_size = output_height * 4
@@ -113,29 +118,30 @@ def make_char_ims(output_height):
             char_ims.append(numpy.array(im)[:, :, 0].astype(numpy.float32) / 255.)
         yield c, char_ims
 
-
-def euler_to_mat(yaw, pitch, roll):
+#Rotation Euler Angle to a given Matrix
+# more info: https://www.learnopencv.com/rotation-matrix-to-euler-angles/
+def euler_to_mat(gama, beta, alfa):
     # Rotate clockwise about the Y-axis
-    c, s = math.cos(yaw), math.sin(yaw)
+    c, s = math.cos(gama), math.sin(gama)
     M = numpy.matrix([[  c, 0.,  s],
                       [ 0., 1., 0.],
                       [ -s, 0.,  c]])
 
     # Rotate clockwise about the X-axis
-    c, s = math.cos(pitch), math.sin(pitch)
+    c, s = math.cos(beta), math.sin(beta)
     M = numpy.matrix([[ 1., 0., 0.],
                       [ 0.,  c, -s],
                       [ 0.,  s,  c]]) * M
 
     # Rotate clockwise about the Z-axis
-    c, s = math.cos(roll), math.sin(roll)
+    c, s = math.cos(alfa), math.sin(alfa)
     M = numpy.matrix([[  c, -s, 0.],
                       [  s,  c, 0.],
                       [ 0., 0., 1.]]) * M
 
     return M
 
-
+# Generate random colors
 def pick_colors():
     first = True
     text_color = 0
@@ -149,7 +155,8 @@ def pick_colors():
     return text_color, number_color
 
 
-def make_affine_transform(from_shape, to_shape, 
+# Making affine transform of a given image
+def make_affine_transform(from_shape, to_shape,
                           min_scale, max_scale,
                           scale_variation=1.0,
                           rotation_variation=1.0,
@@ -165,12 +172,12 @@ def make_affine_transform(from_shape, to_shape,
                            (max_scale - min_scale) * 0.5 * scale_variation)
     if scale > max_scale or scale < min_scale:
         out_of_bounds = True
-    roll = random.uniform(-0.3, 0.3) * rotation_variation
-    pitch = random.uniform(-0.2, 0.2) * rotation_variation
-    yaw = random.uniform(-1.2, 1.2) * rotation_variation
+    alfa = random.uniform(-0.3, 0.3) * rotation_variation
+    beta = random.uniform(-0.2, 0.2) * rotation_variation
+    gama = random.uniform(-1.2, 1.2) * rotation_variation
 
     # Compute a bounding box on the skewed input image (`from_shape`).
-    M = euler_to_mat(yaw, pitch, roll)[:2, :2]
+    M = euler_to_mat(gama, beta, alfa)[:2, :2]
     h, w = from_shape
     corners = numpy.matrix([[-w, +w, -w, +w],
                             [-h, -h, +h, +h]]) * 0.5
@@ -192,7 +199,7 @@ def make_affine_transform(from_shape, to_shape,
     center_to = to_size / 2.
     center_from = from_size / 2.
 
-    M = euler_to_mat(yaw, pitch, roll)[:2, :2]
+    M = euler_to_mat(gama, beta, alfa)[:2, :2]
     M *= scale
     M = numpy.hstack([M, trans + center_to - M * center_from])
 
